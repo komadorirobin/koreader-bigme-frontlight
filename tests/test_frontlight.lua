@@ -12,7 +12,8 @@ local function contains(s,part) return type(s)=="string" and s:find(part,1,true)
 local LEVELS={0,2,20,30,40,50,60,70,80,90,102,108,114,120,126,132,138,144,150,156,162,168,174,180,188,192,198,204,206,208,210,212,214,216,218,220,222}
 local function run(options)
     local o=options or {}
-    local s={commands={},opens=0,closes=0,errno=0,writes={},saved={},messages={},logs={},events=0,refs=0,deletes=0,contexts=0,detaches=0}
+    local s={commands={},opens=0,closes=0,errno=0,writes={},saved={},messages={},logs={},events=0,refs=0,deletes=0,contexts=0,detaches=0,
+        permission_checks=0,legacy_permission_calls=0,settings_reads=0,method_calls=0}
     s.settings={ColdValue=12,WarmValue=13,screen_brightness_cold=114,screen_brightness_warm=120,LightMode=4,
         LightUser_Brightness=12,LightUser_ColorTemp=13}
     for k,v in pairs(o.settings or {}) do s.settings[k]=v end
@@ -62,13 +63,16 @@ local function run(options)
         ExceptionCheck=function() return s.java_exception and 1 or 0 end,
         ExceptionClear=function() s.java_exception=false end,
         DeleteLocalRef=function(_,ref) assert(ref.ref and not ref.deleted); ref.deleted=true; s.deletes=s.deletes+1 end,
-        GetObjectClass=function() return allocated("Activity") end,
+        GetObjectClass=function() return o.null_activity_class and NULL or allocated("Activity") end,
         GetMethodID=function(_,_,name,signature)
             assert(name=="getContentResolver" and signature=="()Landroid/content/ContentResolver;")
             if o.null_method then return NULL end
             return checkedArgs(name,signature)
         end,
-        CallObjectMethod=function(_,_,method) assert(method=="getContentResolver"); return allocated("ContentResolver") end,
+        CallObjectMethod=function(_,_,method)
+            assert(method=="getContentResolver"); s.method_calls=s.method_calls+1
+            return o.null_resolver and NULL or allocated("ContentResolver")
+        end,
         FindClass=function(_,class)
             assert(class=="android/provider/Settings$System","public Android API only")
             if o.java_error then s.java_exception=true; return NULL end
@@ -76,16 +80,28 @@ local function run(options)
         end,
         GetStaticMethodID=function(_,_,name,signature)
             assert((name=="getInt" and signature=="(Landroid/content/ContentResolver;Ljava/lang/String;I)I")
-                or (name=="putInt" and signature=="(Landroid/content/ContentResolver;Ljava/lang/String;I)Z"))
+                or (name=="putInt" and signature=="(Landroid/content/ContentResolver;Ljava/lang/String;I)Z")
+                or (name=="canWrite" and signature=="(Landroid/content/Context;)Z"))
+            if o.missing_static==name then
+                s.java_exception=not o.null_without_exception
+                return NULL
+            end
             return checkedArgs(name,signature)
         end,
         NewStringUTF=function(_,value) return allocated(value) end,
         CallStaticIntMethod=function(_,_,method,resolver,key,default)
             assert(method=="getInt" and resolver.value=="ContentResolver" and default.kind=="int32_t" and default.value==-1)
+            s.settings_reads=s.settings_reads+1
             if s.fail_read then s.java_exception=true; return -1 end
             return s.settings[key.value] or -1
         end,
         CallStaticBooleanMethod=function(_,_,method,resolver,key,value)
+            if method=="canWrite" then
+                assert(resolver==s.activity and key==nil and value==nil,"canWrite receives the Activity Context, no extra args")
+                s.permission_checks=s.permission_checks+1
+                if o.permission_exception then s.java_exception=true; return 0 end
+                return not (o.no_permission or s.permission_revoked) and 1 or 0
+            end
             assert(method=="putInt" and resolver.value=="ContentResolver" and value.kind=="int32_t")
             local allowed={ColdValue=true,WarmValue=true,screen_brightness_cold=true,screen_brightness_warm=true,
                 LightUser_Brightness=true,LightUser_ColorTemp=true}
@@ -105,9 +121,13 @@ local function run(options)
             if kind=="int32_t[1]" and o.alloc_error then error("allocation failed") end
             return kind=="int32_t" and {kind=kind,value=value} or {kind=kind,[0]=value}
         end,errno=function() return s.errno end}
+    s.activity={}
     local android={prop={manufacturer=o.manufacturer or "bigme",brand=o.brand or "bigme",model=o.model or "hibreak",
-        hardware=o.hardware or "mt6877",product=o.product or "hibreak_eea"},app={activity={vm={},clazz={}}},
-        canWriteSettings=function() return not o.no_permission end,
+        hardware=o.hardware or "mt6877",product=o.product or "hibreak_eea"},app={activity={vm={},clazz=s.activity}},
+        canWriteSettings=function()
+            s.legacy_permission_calls=s.legacy_permission_calls+1
+            error("Obsolete hasWriteSettingsPermission would cause native CallBooleanMethod(mid == null)")
+        end,
         jni={context=function(self,_,callback)
             assert(self.env==nil,"never nest JNI contexts")
             s.contexts=s.contexts+1; self.env={[0]=api}
@@ -186,6 +206,34 @@ end
 local passed=0
 local function test(name,fn) fn(); passed=passed+1; print("PASS " .. name) end
 local function active(s) assert(s:status() and not s:status().fault) end
+
+test("startup bypasses the obsolete permission helper that caused the device abort",function()
+    local s=run(); active(s)
+    assert(s.legacy_permission_calls==0 and s.permission_checks==1 and s.settings_reads==5)
+    assert(s.opens==0 and #s.writes==0 and #s.messages==0)
+end)
+for _,o in ipairs({{no_permission=true},{missing_static="canWrite"},
+    {missing_static="canWrite",null_without_exception=true},{permission_exception=true}}) do
+    test("permission denial/missing method/Java failure stays native-safe and leaves backend untouched",function()
+        local s=run(o)
+        assert(not s:status() and s.legacy_permission_calls==0 and s.opens==0 and #s.writes==0 and s.settings_reads==0)
+        assert(s.powerd.device.hasNaturalLight==s.original and not s.java_exception)
+        assert(s.refs==s.deletes and s.contexts==s.detaches and #s.messages==1)
+    end)
+end
+test("permission revocation after startup prevents hardware writes",function()
+    local s=run(); active(s); s.permission_revoked=true
+    assert(not s.powerd:setIntensity(26) and s.opens==0 and #s.writes==0 and s:status().fault)
+    local contexts=s.contexts
+    assert(not s.powerd:setWarmth(80) and s.contexts==contexts and s.legacy_permission_calls==0)
+end)
+for _,o in ipairs({{null_activity_class=true},{null_resolver=true},{missing_static="getInt"}}) do
+    test("invalid read-side JNI lookup never reaches a call with null method/object",function()
+        local s=run(o)
+        assert(not s:status() and s.opens==0 and #s.writes==0 and s.settings_reads==0)
+        assert(s.refs==s.deletes and s.contexts==s.detaches and not s.java_exception)
+    end)
+end
 
 test("real upstream PowerD loads; no startup hardware/settings writes",function()
     local s=run(); active(s)

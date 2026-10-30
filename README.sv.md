@@ -7,8 +7,10 @@ Bigmes kalla och varma lysdioder. OrbitUIs snabbkontroller använder samma
 PowerD-gränssnitt och kan därför också använda den. OrbitUI krävs inte.
 Ingen root, APK-ersättning eller firmwareändring.
 
-**Första beta: v0.1.0-beta.1.** Båda kanalernas styrkommandon och återställning
-är fysiskt verifierade på ägarens Bigme. Den integrerade patchen, hela området,
+**Aktuell beta: v0.1.0-beta.2.** Rättar Beta 1:s konstaterade startkrasch i den
+gamla Android-behörighetskontrollen. **Aktivera inte Beta 1.** Se räddning nedan.
+Båda kanalernas styrkommandon och återställning är fysiskt verifierade separat
+på ägarens Bigme. Den rättade integrerade patchen, hela området,
 Android-inställningskopplingen och livscykeln behöver fortfarande testas på enheten.
 Lokala tester ersätter inte det. Behåll Bigmes egen Android-ljusmeny tillgänglig.
 
@@ -46,6 +48,11 @@ Samma `2-bigme-frontlight.lua` publiceras också i
 hittar nya numrerade patchar automatiskt vid synkronisering. Synkronisera och
 starta om KOReader. En tidigare inaktiverad kopia förblir inaktiverad.
 Ingen ny version av Patch Manager eller OrbitUI behövs för upptäckten.
+
+Efter Beta 1-felet: låt patchen vara avstängd under synkroniseringen. Kontrollera
+att ersättningen är **v0.1.0-beta.2 eller senare** innan du aktiverar och startar
+om. Byt inte tillbaka den gamla felaktiga `.lua.disabled`-/`.lua.stoppad`-kopian
+till `.lua`.
 
 ### Manuellt
 
@@ -99,6 +106,25 @@ JNI använder publika `Settings.System` med kontrollerade uppslag, rensade
 Java-undantag och lokala referenser. Avknoppade miniatyrprocesser får inte anropa
 JNI eller ljushårdvaran.
 
+Beta 2 använder **`Settings.System.canWrite(Context)`** direkt och kontrollerar
+metodreferens och Java-undantag före anropet. Den anropar aldrig
+`android.canWriteSettings()`: den gamla hjälpfunktionen pekar på den saknade
+Java-metoden `hasWriteSettingsPermission`, som gav Beta 1:s startkrasch på
+KOReader v2026.07.1. Lua-funktionens `pcall` kan inte fånga ett Android-processavbrott.
+Behörigheten kontrolleras igen före återläsning och senare ljuskommandon, så
+återkallad behörighet spärrar hårdvaruskrivning. Saknade metoder, nekad åtkomst
+eller Java-undantag lämnar originaldrivrutinen kvar vid start.
+
+### Om Beta 1 hindrar KOReader från att starta
+
+Tvångsavsluta KOReader via Androids appinställningar; **rensa inte appdata**.
+Spara `koreader/crash.log` och byt i Androids filhanterare namn på
+`koreader/patches/2-bigme-frontlight.lua` till `.lua.disabled` eller ett annat
+namn som inte slutar på `.lua`. Låt gamla diagnostikpatchar för åtkomst/kallt/
+varmt ljus vara avstängda. Starta KOReader med felpatchen avstängd. Synkronisera/
+hämta den rättade versionen; återaktivera aldrig den gamla filen.
+Inställningar och böcker behöver inte återställas.
+
 Ett fel spärrar fortsatta kommandon till omstart i stället för att visa falsk
 framgång eller återgå till den verkningslösa generiska ljusvägen. Vid delvis
 misslyckade på/av-anrop kan en kanal redan ha ändrats. Ställ önskade nivåer i
@@ -128,12 +154,21 @@ make test-native
 make package
 ```
 
-Testerna hämtar tre orörda KOReader-källor på exakt revision ovan och kontrollerar
-deras SHA-256. Riktiga PowerD- och ljusdialogsfunktioner testas med simulerad
+Testerna hämtar tre orörda KOReader-källor på exakt revision ovan och två
+Android-launcherkällor från
+[`367b7bb7`](https://github.com/koreader/android-luajit-launcher/tree/367b7bb7ef06171438b2fa910449fa8a2b227ec1).
+Alla fem SHA-256 kontrolleras. Riktiga PowerD- och ljusdialogsfunktioner testas med simulerad
 hårdvara/JNI/lagring: alla nivåer, kanalavgränsning, på/av, återläsning, skydd,
 delvisa fel, JNI-heltal, stängning och bakgrundsprocesser. En egen ofarlig C-stub
 kontrollerar LuaJIT-FFI:s pekare, variadiska anrop och errno, utan enhet, riktig
-JNI eller kärn-ioctl. ZIP:en innehåller bara patch, dokumentation, licens och
+JNI eller kärn-ioctl. En andra C-stub använder de riktiga JNI-typerna, orörd
+JNI-kontext och den gamla behörighetsfunktionen. Den återskapar null-anropet
+utan att avbryta processen, och provar sedan hela den rättade patchen via
+riktiga FFI-funktionspekare/variadiska anrop: framgång, nekad behörighet,
+saknade metoder, Java-undantag och balanserad referens-/trådhantering.
+Ingen riktig Android-JVM startas; detta ersätter inte enhetsprov.
+Det finns 69 vanliga fall, fyra enhets-ABI-fall och sju JNI-gränsfall.
+ZIP:en innehåller bara patch, dokumentation, licens och
 kontrollsummor. Kontrollera med `shasum -a 256 -c SHA256SUMS` efter uppackning.
 
 Ereader-kopian ska vara byte-identisk med den fristående releasen.

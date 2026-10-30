@@ -7,8 +7,10 @@ controls to the cold and warm LEDs on one verified Bigme firmware family.
 It also serves interfaces such as OrbitUI's quick controls that use PowerD.
 OrbitUI is **not** required. No root, APK replacement or firmware modification.
 
-**Initial beta: v0.1.0-beta.1.** Both channel commands and their restoration were
-physically verified on the owner's Bigme. The integrated driver, complete range,
+**Current beta: v0.1.0-beta.2.** Fixes Beta 1's confirmed startup crash in the
+obsolete Android permission helper. **Do not enable Beta 1.** See recovery below.
+Both channel commands and their restoration were physically verified separately
+on the owner's Bigme. The corrected integrated driver, complete range,
 Android-settings bridge and lifecycle still require device acceptance; automated
 tests are not a substitute. Keep Bigme's own Android light panel available.
 
@@ -46,6 +48,10 @@ The identical `2-bigme-frontlight.lua` is also published in
 discovers new numbered patches automatically when it synchronizes. Synchronize
 and restart KOReader. Previously disabled copies remain disabled.
 No Patch Manager update or new OrbitUI release is required for discovery.
+
+If recovering from Beta 1, keep it disabled while synchronizing, then verify that
+the replacement is **v0.1.0-beta.2 or newer** before enabling/restarting. Do not
+rename the old failed `.lua.disabled` or `.lua.stoppad` backup back to `.lua`.
 
 ### Manual
 
@@ -98,6 +104,24 @@ Open, ioctl and close failures are checked; no automatic retry or guessed ioctl.
 JNI uses public `Settings.System` APIs with checked lookups, exception clearing
 and local-reference cleanup. Forked thumbnail workers cannot call JNI or hardware.
 
+Beta 2 resolves **`Settings.System.canWrite(Context)`** directly and validates
+the method ID and exceptions before calling it. It never calls
+`android.canWriteSettings()`: that legacy wrapper refers to the missing Java
+method `hasWriteSettingsPermission`, which caused Beta 1's native startup abort
+on KOReader v2026.07.1. A Lua `pcall` cannot catch an Android process abort.
+Permission is checked again before reading settings or issuing later light
+commands, so revocation prevents further hardware writes. Missing methods,
+denied access or Java exceptions leave the stock backend intact at startup.
+
+### Recovering from Beta 1's startup loop
+
+Force-stop KOReader in Android's app settings; **do not clear app data**. Preserve
+`koreader/crash.log`, then use Android's file manager to rename
+`koreader/patches/2-bigme-frontlight.lua` to `.lua.disabled` (or another name not
+ending in `.lua`). Leave the earlier access/cold/warm diagnostic patches disabled.
+Restart KOReader with the failed patch disabled. Synchronize/download the
+corrected version; never re-enable the old file. Settings and books need no reset.
+
 Failures latch the driver until a restart rather than pretending success or
 falling back to the ineffective generic brightness path. A partial operation
 may already have changed one channel. Use Bigme's own panel to set the desired
@@ -128,12 +152,21 @@ make package
 ```
 
 Tests fetch three unmodified KOReader sources at the exact revision above and
-verify their SHA-256 hashes before loading them. They exercise real PowerD and
+the official Android launcher sources at
+[`367b7bb7`](https://github.com/koreader/android-luajit-launcher/tree/367b7bb7ef06171438b2fa910449fa8a2b227ec1).
+All five files are SHA-256 checked before loading. They exercise real PowerD and
 native frontlight-widget callbacks with mocked hardware/JNI/settings. All 37
 indices, channel isolation, toggles, readback, guards, partial failures, scalar
 JNI arguments, cleanup and background-worker isolation are covered. A separate
 host C fixture checks real LuaJIT FFI pointers/varargs/errno without any device,
-real JNI or kernel ioctl. Release ZIPs contain only the patch, docs, license and
+real JNI or kernel ioctl. A second C fixture uses the official JNI layouts,
+unchanged JNI context and obsolete permission helper: it safely reproduces the
+null-method call without aborting, then tests the whole corrected patch through
+real FFI function pointers/varargs for success, denial, missing IDs and Java
+exceptions, with balanced references and thread attach/detach. Neither fixture
+starts a real Android JVM or establishes physical device acceptance.
+There are 69 ordinary cases, four device-ABI cases and seven JNI-boundary cases.
+Release ZIPs contain only the patch, docs, license and
 checksums. Verify extracted files with `shasum -a 256 -c SHA256SUMS`.
 
 The Ereader catalogue copy must stay byte-identical to the standalone release.

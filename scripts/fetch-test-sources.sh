@@ -24,3 +24,7 @@ fetch() {
 fetch device/generic/powerd.lua generic-powerd.lua e1a12b8b566ecfd43025de96e01ba32ef03e2cab2569edcee384137f739119f4
 fetch device/android/powerd.lua android-powerd.lua e2784cad9c3c8a2f088f9119c058d8313d960dbc3f0fc65d1b4eb1f00866d780
 fetch ui/widget/frontlightwidget.lua frontlightwidget.lua 8057dab505a61a9dd2807c2dd13cc15a74e0fe256cd42453407cf72080aa12ae
+# Inspect the actual Lua-to-Java bridge too, not just a boolean permission mock.
+base_url=https://raw.githubusercontent.com/koreader/android-luajit-launcher/367b7bb7ef06171438b2fa910449fa8a2b227ec1
+fetch assets/android.lua android.lua 2a8469f7ab7119f9bfb2321268b4418761984aae147277db396f38249be020ee
+fetch app/src/main/java/org/koreader/launcher/MainActivity.kt MainActivity.kt a7455fc65fc3cabe0c42e80f947d6c26b421185d13986055e2f6789f8d62b09b

@@ -8,6 +8,9 @@ if [ "${1:-}" = native ]; then
     esac
     "${CC:-cc}" "$shared_flag" -fPIC -Wall -Wextra -Werror -o "$fixture" tests/native_fixture.c
     BIGME_NATIVE_FIXTURE="$(pwd)/$fixture" "${LUA:-luajit}" tests/test_frontlight.lua .cache/upstream
+    jni_fixture="${fixture%.*}-jni.${fixture##*.}"
+    "${CC:-cc}" "$shared_flag" -fPIC -Wall -Wextra -Werror -o "$jni_fixture" tests/jni_fixture.c
+    BIGME_JNI_FIXTURE="$(pwd)/$jni_fixture" "${LUA:-luajit}" tests/test_jni.lua .cache/upstream
 else
     "${LUA:-luajit}" tests/test_frontlight.lua .cache/upstream
 fi

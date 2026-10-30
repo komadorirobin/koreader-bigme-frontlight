@@ -1,6 +1,48 @@
 # Changelog
 
+## v0.1.0-beta.2 — 2026-10-30
+
+Fixes the confirmed Beta 1 startup abort on KOReader v2026.07.1 / Bigme Android 14.
+Beta 1 repeatedly reached `CallBooleanMethod` with a NULL method ID through
+`android.canWriteSettings()` and the missing `hasWriteSettingsPermission` Java
+target. Disabling the patch restored startup. No private log is distributed.
+
+- Replace that obsolete helper with checked public
+  `Settings.System.canWrite(Context)` calls. Validate the ID/exception before
+  invoking it; denied/missing/error states fail closed without hardware writes.
+- Recheck permission before settings reads and later commands; do not request,
+  grant or modify permissions. Cold/warm mapping, ioctls and saved-state schema
+  are unchanged. No OrbitUI or Patch Manager release is required.
+- Add a regression that fails against Beta 1, permission revocation and invalid
+  JNI-lookup cases. Test official pinned bridge code and Kotlin method names,
+  not only the previously mocked boolean permission result.
+- A harmless C JNI table reproduces the old NULL-method call without aborting,
+  then exercises the complete corrected patch with official JNI layouts/context
+  and real FFI calls. Checks success/denial/missing method/Java exception,
+  references and attach/detach; no real JVM/hardware/settings are touched.
+- 69 ordinary Lua/LuaJIT cases, four native device-ABI cases and seven JNI-boundary
+  cases pass locally. GitHub CI and exact public-byte checks gate publication.
+- English/Swedish recovery guidance. Beta 1 release notes are prominently warned;
+  its immutable tag and assets are not replaced. The corrected integrated patch
+  still needs physical startup/light/suspend acceptance on the Bigme.
+
+### Svenska
+
+Rättar Beta 1:s konstaterade startkrasch. Den gamla behörighetsfunktionen försökte
+anropa en Java-metod som saknas; Android avbröt då KOReader upprepade gånger.
+Den ersätts av en kontrollerad publik Android-kontroll, utan ändrade behörigheter.
+Även saknade metoder, nekad/återkallad behörighet och Java-undantag testas.
+80 separata fall täcker logik samt enhets-/JNI-gränser; ingen riktig Android-JVM
+eller ljushårdvara används i testerna. Beta 1 har en varning. Håll den avstängd,
+synkronisera/hämta Beta 2 och återaktivera inte den gamla filen. Den rättade
+integrerade patchen behöver fortfarande bekräftas på enheten.
+
 ## v0.1.0-beta.1 — 2026-10-30
+
+**Unsafe: do not enable.** A native startup abort was subsequently confirmed;
+the original notes below describe the initial automated coverage, not device
+acceptance. Use Beta 2 or later. **Osäker: aktivera inte.** Konstaterat startfel;
+använd Beta 2 eller senare, se räddningsanvisningarna i README.
 
 First public beta of the standalone Bigme frontlight compatibility patch.
 
