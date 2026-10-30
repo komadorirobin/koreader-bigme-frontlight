@@ -18,4 +18,9 @@ jobs:
       - run: make test LUA=lua5.1
       - run: make test LUA=luajit
       - run: make test-native
+      - name: Diagnostic regressions
+        run: |
+          sh diagnostics/android-settings-readonly/tests/run.sh
+          sh diagnostics/provider-current-values/tests/run.sh
+          sh diagnostics/provider-roundtrip/tests/run.sh
       - run: make package

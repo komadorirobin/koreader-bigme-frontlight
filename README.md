@@ -1,22 +1,24 @@
 # KOReader Bigme frontlight compatibility
 
-[Svenska](README.sv.md) · [Download](https://github.com/komadorirobin/koreader-bigme-frontlight/releases)
+[Svenska](README.sv.md) · [Download Beta 3](https://github.com/komadorirobin/koreader-bigme-frontlight/releases/tag/v0.1.0-beta.3)
 
-A small, standalone KOReader userpatch that connects KOReader's normal light
-controls to the cold and warm LEDs on one verified Bigme firmware family.
-It also serves interfaces such as OrbitUI's quick controls that use PowerD.
-OrbitUI is **not** required. No root, APK replacement or firmware modification.
+A standalone KOReader userpatch that connects KOReader's normal light controls
+to the cold and warm LEDs on one verified Bigme firmware profile. PowerD callers
+such as OrbitUI's quick controls use the same backend; OrbitUI is not required.
+No root, APK replacement, firmware modification or permission grant.
 
-**Current beta: v0.1.0-beta.2.** Fixes Beta 1's confirmed startup crash in the
-obsolete Android permission helper. **Do not enable Beta 1.** See recovery below.
-Both channel commands and their restoration were physically verified separately
-on the owner's Bigme. The corrected integrated driver, complete range,
-Android-settings bridge and lifecycle still require device acceptance; automated
-tests are not a substitute. Keep Bigme's own Android light panel available.
+**Current release: v0.1.0-beta.3.** The integrated implementation has been tested
+on the owner's matching Bigme: brightness, warmth, off/on restoration, restart
+readback and synchronization in both directions with Bigme's own controls.
+It remains a beta for this exact firmware profile, not general Bigme support.
+Raw-settings storage has not been independently read back; see the limits below.
 
-## Supported device profile
+**Replace Beta 1 and Beta 2 before enabling.** Beta 1 could abort KOReader at
+startup; Beta 2 avoided that abort but Android rejected its protected raw-key
+reads. Direct writes also failed in the first local Beta 3 candidate. Beta 3
+reads permitted indices and saves through Bigme's own verified settings provider.
 
-The test device is a Bigme B7 Pro whose firmware reports these generic identifiers:
+## Supported profile and requirements
 
 | Property | Required value |
 | --- | --- |
@@ -26,152 +28,180 @@ The test device is a Bigme B7 Pro whose firmware reports these generic identifie
 | Hardware | `mt6877` |
 | Architecture | Android `arm64` |
 
-Marketing names alone are not a compatibility check. In particular, a model
-string of `hibreak` is not a promise that every HiBreak phone or Bigme reader is
-supported. Other profiles do nothing. Unknown/mismatched OEM light values leave
-the original backend intact and produce a warning on an otherwise matching device.
+Marketing names alone are not a compatibility check. The `hibreak` string does
+not promise support for every HiBreak phone or Bigme reader. Other profiles are
+left unchanged. Matching devices with invalid values, unavailable provider or
+missing permission keep their original backend and receive a warning.
 
-Requires a KOReader build with userpatch support and the stock Android PowerD
-backend. Developed/tested against KOReader
-[`801277394b7fdb77da5580459a9827e9d95e95a4`](https://github.com/koreader/koreader/tree/801277394b7fdb77da5580459a9827e9d95e95a4).
-F-Droid builds without userpatch support cannot load this file.
-KOReader must already be allowed to **modify system settings** in Android;
-the patch neither requests nor grants that permission, and never changes SELinux.
+KOReader must support userpatches and use its stock Android PowerD backend.
+KOReader must already be allowed to **modify system settings** in Android.
+The patch neither requests nor grants permissions and never changes SELinux.
+Development uses pinned KOReader
+[`80127739`](https://github.com/koreader/koreader/tree/801277394b7fdb77da5580459a9827e9d95e95a4)
+and Android launcher
+[`367b7bb7`](https://github.com/koreader/android-luajit-launcher/tree/367b7bb7ef06171438b2fa910449fa8a2b227ec1).
+Builds without userpatch support cannot load this file.
 
-## Install
+## Installation
 
 ### Ereader Patch Manager
 
-The identical `2-bigme-frontlight.lua` is also published in
+The identical Lua file is distributed in
 [komadorirobin/Ereader](https://github.com/komadorirobin/Ereader).
 [Ereader Patch Manager](https://github.com/komadorirobin/ereader-patch-manager.koplugin)
-discovers new numbered patches automatically when it synchronizes. Synchronize
-and restart KOReader. Previously disabled copies remain disabled.
-No Patch Manager update or new OrbitUI release is required for discovery.
+discovers numbered root-level patches automatically. Synchronize patches and
+restart KOReader; no new OrbitUI or Patch Manager version is required.
 
-If recovering from Beta 1, keep it disabled while synchronizing, then verify that
-the replacement is **v0.1.0-beta.2 or newer** before enabling/restarting. Do not
-rename the old failed `.lua.disabled` or `.lua.stoppad` backup back to `.lua`.
+Existing disabled copies remain disabled. If upgrading from a failed beta, keep
+it disabled while synchronizing, verify the replacement is **0.1.0-beta.3**, then
+enable it and restart. Never rename an old failed backup back to `.lua`.
+For a previous manual local test, synchronization can now replace it with Beta 3.
 
 ### Manual
 
-Download `2-bigme-frontlight.lua` from a release, or extract its ZIP and copy
-**only that Lua file** into KOReader's `patches/` directory. Normally on Android:
+Download the release's `2-bigme-frontlight.lua`, or extract the ZIP and copy
+**only that Lua file** to:
 
 ```text
 /storage/emulated/0/koreader/patches/2-bigme-frontlight.lua
 ```
 
-Disable the earlier access/cold/warm diagnostic patches first, if installed:
-`2-bigme-frontlight-access-diagnostic.lua`, `2-bigme-frontlight-manual-test.lua`
-and `2-bigme-frontlight-warm-test.lua`. Rename `.lua` to `.lua.disabled` or move
-them outside `patches/`; keep their logs. Do not disable unrelated patches.
-Install just one copy of the compatibility patch, then fully quit/restart KOReader.
+Disable all earlier diagnostics first, including renamed active copies:
 
-## Controls and saved levels
+- `2-bigme-frontlight-access-diagnostic.lua`
+- `2-bigme-frontlight-manual-test.lua`
+- `2-bigme-frontlight-warm-test.lua`
+- `2-bigme-settings-readonly-diagnostic.lua`
+- `2-bigme-settings-provider-test.lua`
+- `2-bigme-settings-provider-roundtrip.lua`
 
-- **Brightness** controls the cold channel, indices **0–36**.
-- **Warmth** controls the warm channel, also 0–36 in the native dialog. KOReader's
-  public warmth API remains 0–100; the patch handles the conversion.
-- These follow Bigme's independent channel controls: warmth is not a
-  constant-brightness colour-temperature mixer. Increasing warm light can also
-  make the display brighter. Other frontlight automations retain those semantics.
-- **Toggle** switches both channels off and restores their previous pair on the
-  next toggle. It does not guess an arbitrary default when no previous pair exists.
-- OEM index-to-driver mapping is nonlinear; the slider numbers are not percentages.
+Rename `.lua` to `.lua.disabled` or move diagnostics outside `patches/`;
+preserve their logs and recovery records. The driver blocks the six known active
+filenames, but cannot detect arbitrary renamed copies. Keep only one active
+frontlight driver. Fully quit and restart KOReader after installation.
 
-Loading the patch reads existing levels without sending a light command or
-changing system settings. Existing automations can still call PowerD normally.
-Getters read back Bigme's settings, so changes in the Android panel are visible
-to subsequent KOReader controls. No background poller is added.
+## Controls
 
-After a successful hardware command, the corresponding `ColdValue`/`WarmValue`
-and `screen_brightness_cold`/`screen_brightness_warm` are synchronized. The matching
-custom-preset value is also updated when `LightMode=4`; day/night presets and
-the selected mode are not rewritten. One profile-scoped KOReader setting,
-`bigme_frontlight_restore`, remembers the pair for switching back on, including
-normal KOReader restarts. Normal KOReader settings persistence still applies.
+- **Brightness:** cold LED channel, indices **0–36**.
+- **Warmth:** independent warm LED channel, native indices **0–36**. The public
+  PowerD warmth API remains 0–100 with conversion handled by the patch.
+- **Toggle / Switch:** both channels off, then restoration of their remembered
+  pair. No arbitrary default is guessed when no prior pair exists.
+- The nonlinear slider indices are not percentages. Warmth is not a
+  constant-brightness color mixer: raising warm light can also brighten the screen.
 
-The patch does not change batteries, books, reading data, network controls,
-rendering, screen refresh mode or unrelated Android settings.
+Loading reads current levels without sending a light command or writing Android
+settings. Existing automations can still call PowerD. Getters reread Bigme's
+readable settings, making Android-panel changes visible without background polling.
+A profile-scoped KOReader setting, `bigme_frontlight_restore`, remembers the pair
+for off/on; normal KOReader settings persistence applies across normal restarts.
 
-## Safety, failures and removal
+## Settings synchronization and limits
 
-Only `/dev/lm3630a` and the two OEM setter requests are used: cold `0x7901`, warm
-`0x7902`, each with an owning 32-bit integer array. The device is opened O_WRONLY
-and closed immediately after each command, including after call exceptions.
-Open, ioctl and close failures are checked; no automatic retry or guessed ioctl.
-JNI uses public `Settings.System` APIs with checked lookups, exception clearing
-and local-reference cleanup. Forked thumbnail workers cannot call JNI or hardware.
+Only the exact system provider `com.xrz.SettingProvider`, package
+`com.xrz.settings`, class `com.xrz.settings.provider.SettingProvider` is allowed.
+Identity, system-app flag, enabled/exported state and existing permissions are
+checked. Writes use only `setting_put_data_system`, with typed Bundle keys
+`name`, `type=1` and integer `value`. The fixed write allowlist is:
 
-Beta 2 resolves **`Settings.System.canWrite(Context)`** directly and validates
-the method ID and exceptions before calling it. It never calls
-`android.canWriteSettings()`: that legacy wrapper refers to the missing Java
-method `hasWriteSettingsPermission`, which caused Beta 1's native startup abort
-on KOReader v2026.07.1. A Lua `pcall` cannot catch an Android process abort.
-Permission is checked again before reading settings or issuing later light
-commands, so revocation prevents further hardware writes. Missing methods,
-denied access or Java exceptions leave the stock backend intact at startup.
+- `ColdValue`, `WarmValue`
+- `screen_brightness_cold`, `screen_brightness_warm`
+- `LightUser_Brightness`, `LightUser_ColorTemp` (only while the selected mode is 4)
 
-### Recovering from Beta 1's startup loop
+The selected mode and day/night presets are never written. Before the first
+requested adjustment in a selected mode, same-value preflight writes check for
+exceptions and unexpected readable-state changes before a direct light command.
+Even same-value writes can notify Android observers. After a hardware command,
+the descriptor is closed and settings are saved. Readable indices, mode and
+custom-mode presets are independently checked; the untouched channel must match.
 
-Force-stop KOReader in Android's app settings; **do not clear app data**. Preserve
-`koreader/crash.log`, then use Android's file manager to rename
-`koreader/patches/2-bigme-frontlight.lua` to `.lua.disabled` (or another name not
-ending in `.lua`). Leave the earlier access/cold/warm diagnostic patches disabled.
-Restart KOReader with the failed patch disabled. Synchronize/download the
-corrected version; never re-enable the old file. Settings and books need no reset.
+**Raw fields remain unreadable from KOReader's ordinary app UID.** Hardware
+arguments use only the previously verified 37-entry OEM table, but returned
+provider calls do not independently prove raw persistence. The OEM branch leaves
+its default `status=-1` unchanged, so status is not used as a success indicator.
+Silently ignored raw writes cannot be ruled out by in-app readback; logs/status
+leave `raw_verified=false`. Physical operation and panel synchronization were
+user-confirmed, but this does not establish raw storage or untested firmware/ranges.
 
-Failures latch the driver until a restart rather than pretending success or
-falling back to the ineffective generic brightness path. A partial operation
-may already have changed one channel. Use Bigme's own panel to set the desired
-levels, then restart. Warnings are available in Swedish/English.
+Do not operate Android and KOReader light controls concurrently. This is not an
+atomic transaction with other apps. Avoid concurrent automations when diagnosing.
+No changes to books, accounts, batteries, networking or screen refresh behavior.
 
-To remove: disable this patch in Patch Manager, or rename `.lua` to `.lua.disabled`,
-then restart. Existing light levels and user data are not reset.
+## Safety, recovery and removal
 
-When reporting a problem, include the device properties above, KOReader version
-and only relevant `[Bigme frontlight ...]` lines from `crash.log`. Do not upload
-account tokens, book data or full private logs. Do not use `settings put` as a
-hardware test: changing a stored number alone did not change this device's LEDs.
+Only `/dev/lm3630a`, cold request `0x7901` and warm request `0x7902` are used,
+with an owning 32-bit integer array. Open/ioctl/close failures are checked,
+descriptors are closed on exception, and no automatic retry or guessed ioctl is
+used. Public JNI methods/fields are checked before invocation with typed A-array
+arguments, exception clearing and local-reference/UTF cleanup. Forked thumbnail
+workers cannot use JNI or light hardware.
 
-## Verification and development
+The obsolete `android.canWriteSettings()` helper is never called: its missing
+Java target caused Beta 1's native abort. Public `Settings.System.canWrite(Context)`
+is resolved and checked directly, including before later commands.
 
-Hardware evidence, 2026-10-30, ordinary KOReader app UID, no root/security changes:
-cold index **12→26→12** (raw **114→198→114**) and warm index **13→30→13** (raw
-**120→210→120**), with accepted ioctls and user-confirmed physical restoration.
-The 37-entry mapping and request ABI were identified by static inspection of
-the owner's OEM files. **No proprietary APKs, libraries or private logs are
-included in this repository or releases.**
+After a detected failure, further control is latched off until restart. A light
+command may already have applied even if subsequent saving failed. Stop testing,
+set desired levels through **Bigme's own panel**, disable the patch and restart
+KOReader. There is no blind rollback. Warnings are Swedish/English.
+
+If KOReader cannot start: force-stop it in Android, **do not clear app data**,
+and rename `koreader/patches/2-bigme-frontlight.lua` to `.lua.disabled` using a
+file manager. Keep failed backups disabled, synchronize/download Beta 3, verify
+its version, then re-enable only the replacement. Books/settings need no reset.
+
+To remove, disable in Patch Manager or rename the Lua extension and restart.
+Existing lights and user data are not reset.
+
+## Logs and verification
+
+The bounded, append-only support trace keeps its previous filename for continuity:
+`koreader/bigme-frontlight-local-test.log` (about 256 KiB maximum). It contains
+version/profile, light values and Java errors, not books/accounts. Logs may include
+old failed sessions: identify the version on each line. Review before sharing.
+
+Device evidence on the matching profile, 2026-10-30:
+
+- Separate cold and warm hardware tests physically changed/restored both channels.
+- A provider roundtrip actually changed `ColdValue` **27→26→27** with original
+  state verified; earlier same-value responses alone were not treated as proof.
+- Integrated local candidate `0.1.0-beta.3-local.2` logged **32** successful
+  adjustments (14 cold, 18 warm), readable indices/presets verified each time,
+  no new-version error, and correct final readings at the next startup.
+- The owner separately confirmed physical operation, off/on restoration and
+  bidirectional synchronization with Bigme's controls. The release changes that
+  candidate's version/messages/comments, not its light-control logic.
+- Full 37-level behavior is host-tested, not a claim of physical testing of every
+  value. Independent raw-storage readback remains unverified.
+
+No proprietary APKs, libraries or private device logs are included.
+
+## Development
 
 ```sh
-make test LUA=luajit
 make test LUA=lua
+make test LUA=luajit
 make test-native
 make package
 ```
 
-Tests fetch three unmodified KOReader sources at the exact revision above and
-the official Android launcher sources at
-[`367b7bb7`](https://github.com/koreader/android-luajit-launcher/tree/367b7bb7ef06171438b2fa910449fa8a2b227ec1).
-All five files are SHA-256 checked before loading. They exercise real PowerD and
-native frontlight-widget callbacks with mocked hardware/JNI/settings. All 37
-indices, channel isolation, toggles, readback, guards, partial failures, scalar
-JNI arguments, cleanup and background-worker isolation are covered. A separate
-host C fixture checks real LuaJIT FFI pointers/varargs/errno without any device,
-real JNI or kernel ioctl. A second C fixture uses the official JNI layouts,
-unchanged JNI context and obsolete permission helper: it safely reproduces the
-null-method call without aborting, then tests the whole corrected patch through
-real FFI function pointers/varargs for success, denial, missing IDs and Java
-exceptions, with balanced references and thread attach/detach. Neither fixture
-starts a real Android JVM or establishes physical device acceptance.
-There are 69 ordinary cases, four device-ABI cases and seven JNI-boundary cases.
-Release ZIPs contain only the patch, docs, license and
-checksums. Verify extracted files with `shasum -a 256 -c SHA256SUMS`.
+Five official source files are pinned and SHA-256 checked. The 105 functional
+cases exercise actual upstream PowerD/widget callbacks with mocked I/O. Native
+tests add four real FFI device-ABI cases, 41 typed-JNI/context cases and one safe
+negative control of the old missing-method abort. No real JVM/provider/hardware
+is used by host tests. Historical diagnostic regressions are separate:
 
-The Ereader catalogue copy must stay byte-identical to the standalone release.
-This is an independent community project, not an official Bigme or KOReader release.
+```sh
+sh diagnostics/android-settings-readonly/tests/run.sh
+sh diagnostics/provider-current-values/tests/run.sh
+sh diagnostics/provider-roundtrip/tests/run.sh
+```
 
-## License
+Diagnostics are never automatically installed or included in the release ZIP.
+Release files contain the patch, bilingual docs, changelog, MIT license and
+SHA-256 checksums. After extraction: `shasum -a 256 -c SHA256SUMS`.
+Packaging refuses to overwrite an existing versioned ZIP.
+The Ereader copy must remain byte-identical to the standalone release.
 
-[MIT](LICENSE). KOReader and downloaded test references retain their own licenses.
+Independent community project, not an official Bigme or KOReader release.
+[MIT](LICENSE); downloaded test references retain their own licenses.

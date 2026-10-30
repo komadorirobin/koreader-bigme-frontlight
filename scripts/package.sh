@@ -7,13 +7,17 @@ case "$patch_version" in
     ''|*[!0-9a-z.-]*) echo 'Invalid patch version' >&2; exit 1 ;;
 esac
 mkdir -p dist
+if [ -e "dist/bigme-frontlight-$patch_version.zip" ]; then
+    echo "Refusing to overwrite existing versioned ZIP: $patch_version" >&2
+    exit 1
+fi
 package_stage=$(mktemp -d "${TMPDIR:-/tmp}/bigme-frontlight-package.XXXXXXXX")
 package_name="koreader-bigme-frontlight-$patch_version"
 mkdir "$package_stage/$package_name"
-cp 2-bigme-frontlight.lua README.md README.sv.md LICENSE "$package_stage/$package_name/"
+cp 2-bigme-frontlight.lua README.md README.sv.md CHANGELOG.md LICENSE "$package_stage/$package_name/"
 (
     cd "$package_stage/$package_name"
-    shasum -a 256 2-bigme-frontlight.lua README.md README.sv.md LICENSE > SHA256SUMS
+    shasum -a 256 2-bigme-frontlight.lua README.md README.sv.md CHANGELOG.md LICENSE > SHA256SUMS
 )
 (
     cd "$package_stage"

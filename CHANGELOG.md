@@ -1,5 +1,73 @@
 # Changelog
 
+## v0.1.0-beta.3 — 2026-10-30
+
+- Replace rejected direct Android writes with the exact verified Bigme system
+  provider and typed `setting_put_data_system` calls. Validate identity,
+  system-app/export/enabled flags and existing permissions. Only six fixed
+  cold/warm light keys are allowed; no root, hidden API or permission changes.
+- Avoid protected raw-key reads; use readable indices, selected mode and custom
+  presets with the verified OEM table. Raw persistence is explicitly unverified,
+  not inferred from returned calls or the provider's unchanged `status=-1`.
+- Preflight same-value writes before the first light command in each selected
+  mode; verify readable levels/presets after changes. Keep startup free of
+  hardware commands/Android writes, latch errors, preserve owner-process and
+  native ABI guards, and report checked JNI operation/Java error details.
+- Promote device-tested `0.1.0-beta.3-local.2` without light-logic changes.
+  Its device log shows 32 successful adjustments, clean readable verification
+  and correct next-start readings. The owner separately confirmed physical
+  cold/warm operation, off/on restoration and panel synchronization both ways.
+  This is evidence for this exact profile, not all Bigme models or every level.
+- Add 105 functional, four native device-ABI and 41 typed-JNI cases, plus the
+  legacy missing-method negative control. Historical diagnostic tests cover
+  actual-change/no-op distinctions and recovery behavior. Host tests use no real
+  JVM/provider/hardware. No private logs or proprietary files are distributed.
+- English/Swedish upgrade/recovery guidance. Standalone release and Ereader
+  catalogue use identical Lua bytes; no OrbitUI/Patch Manager update is needed.
+  Existing disabled copies stay disabled. Old beta tags/assets are untouched.
+
+### Svenska
+
+Första integrerade betan med användarbekräftat kallt/varmt ljus, av/på,
+återställning och synkning åt båda håll på den matchande Bigme-profilen.
+Blockerade Android-skrivningar ersätts av Bigmes egen verifierade tjänst,
+och skyddade råvärden läses inte längre. Lagringen av råvärden är fortfarande
+inte separat återläst; betastatus och exakt profilbegränsning kvarstår.
+Svenska/engelska instruktioner, förbättrad felrapportering och typade JNI-tester.
+Synkronisera via Ereader Patch Manager och starta om; ingen ny pluginversion
+krävs. Inaktiverade kopior förblir inaktiverade. Återaktivera inte gamla felkopior.
+
+## v0.1.0-beta.3-local.1 — unpublished device-test candidate
+
+- Device diagnostic proved `ColdValue`/`WarmValue` readable and `canWrite=1`,
+  but `Settings.System.getInt(screen_brightness_cold)` throws SecurityException
+  with both variadic and array JNI calls. Do not infer permission denial or an
+  ABI problem from that error. No private log is included here.
+- Read only the two indices, selected mode and (in custom mode) preset indices.
+  Keep exact profile/range checks and the already verified nonlinear OEM table.
+  Raw values are written after commands but never queried. Independent raw
+  consistency checking is necessarily unavailable, not silently simulated.
+- Preflight required settings writes before the first light command in each
+  selected mode, with current indices/presets and derived raw values. A denial
+  stops before ioctl. No preflight/settings write/light command during loading
+  or getters. Read back indices/presets and detect mode changes after commands.
+- Include failing JNI operation and Java exception text with checked Throwable
+  formatting and reference/UTF cleanup. Append bounded local test trace.
+- Block installation if known earlier diagnostics remain active. All original
+  profile, native ABI, permission, lifecycle and owner-process guards remain.
+- 86 ordinary, four device-FFI and twelve JNI-boundary host cases pass. Optional
+  old-Beta-2 negative control reproduces the actual protected-read failure.
+  These are not Android/device acceptance tests. Local delivery only: no GitHub
+  release, tag, push, Ereader catalogue or immutable public asset update.
+
+### Svenska
+
+Lokal testversion, inte publicerad. Undviker Androids blockerade råvärdesläsning
+och använder läsbara nivåindex med den verifierade hårdvarutabellen. Skrivåtkomst
+kontrolleras inför första justeringen, före ljuskommandon, och fel får eget
+anropsnamn/Java-feltext i loggen. Återläsning av råvärden är inte möjlig och
+hävdas inte. Synkning och fysisk effekt behöver bekräftas på Bigmen innan release.
+
 ## v0.1.0-beta.2 — 2026-10-30
 
 Fixes the confirmed Beta 1 startup abort on KOReader v2026.07.1 / Bigme Android 14.

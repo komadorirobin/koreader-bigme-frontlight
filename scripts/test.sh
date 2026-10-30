@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 sh scripts/fetch-test-sources.sh
+BIGME_PROVIDER_DRIVER=${BIGME_PROVIDER_DRIVER:-1}
+export BIGME_PROVIDER_DRIVER
 if [ "${1:-}" = native ]; then
     case "$(uname -s)" in
         Darwin) fixture=.cache/native_fixture.dylib; shared_flag=-dynamiclib ;;
@@ -11,6 +13,9 @@ if [ "${1:-}" = native ]; then
     jni_fixture="${fixture%.*}-jni.${fixture##*.}"
     "${CC:-cc}" "$shared_flag" -fPIC -Wall -Wextra -Werror -o "$jni_fixture" tests/jni_fixture.c
     BIGME_JNI_FIXTURE="$(pwd)/$jni_fixture" "${LUA:-luajit}" tests/test_jni.lua .cache/upstream
+    if [ "$BIGME_PROVIDER_DRIVER" = 1 ]; then
+        "${LUA:-luajit}" diagnostics/provider-driver/tests/test_driver_jni.lua
+    fi
 else
     "${LUA:-luajit}" tests/test_frontlight.lua .cache/upstream
 fi
